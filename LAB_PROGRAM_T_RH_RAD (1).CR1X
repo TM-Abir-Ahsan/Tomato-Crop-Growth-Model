@@ -1,0 +1,137 @@
+'CR1000X Series Datalogger
+'Program to connect PAR and Temperature sensros 
+'date: September 15, 2023
+'revised: Septmeber 15 2023
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'WRING 
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+' NET RADIOMETER SENSOR
+''''''''''''' 
+' WHITE - C1 
+' BLACK - G
+' RED - 12V
+' CLEAR - AG
+''''''''''''''
+
+'Explanation of Constants and Variables Used in Datalogger Program
+'BattV = datalogger battery voltage
+'PanelT = datalogger panel temperature
+'Net(4) = Array to hold output from SDI12Recorder function;
+'         Location 1 = incoming SW, Location 2 = outgoing SW,
+'         Location 3 = incoming LW, Location 4 = outgoing LW
+'Incoming_SW = downwelling shortwave radiation in Watts per square meter
+'Outgoing_SW = upwelling (reflected) shortwave radiation in Watts per square meter
+'Incoming_LW = downwelling longwave radiation in Watts per square meter
+'Incoming_LW = upwelling (emitted) longwave radiation in Watts per square meter
+
+
+'TEMP SENSOR-1 
+'WHITE - SE5
+'GREEN - SE7
+'BLACK - G
+'RED - 12V
+'CLEAR - AG
+
+'TEMP SENSOR-2 
+'WHITE - SE9
+'GREEN - SE11
+'BLACK - G
+'RED - 12V
+'CLEAR - AG
+
+'TEMP SENSOR-3 
+'WHITE - SE13
+'GREEN - SE15
+'BLACK - G
+'RED - 12V
+'CLEAR - AG
+
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+' DECLARE VARIABLS 
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+Public BattV, PanelT
+
+Public Net(4)
+Alias Net(1) = Incoming_SW
+Alias Net(2) = Outgoing_SW
+Alias Net(3) = Incoming_LW
+Alias Net(4) = Outgoing_LW
+
+Public T(3)
+Alias T(1) = T_1
+Alias T(2) = T_2
+Alias T(3) = T_3
+
+Public RH (3)
+Alias RH(1) = RH_1
+Alias RH(2) = RH_2
+Alias RH(3) = RH_3
+
+Units T_1 = C
+Units T_2 = C
+Units T_3 = C
+Units RH_1 = %
+Units RH_2 = %
+Units RH_3 = %
+Units Incoming_SW = Wm-2
+Units Outgoing_SW = Wm-2
+Units Incoming_LW = Wm-2
+Units Outgoing_LW = Wm-2
+
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+' DATA TABLES 
+'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+DataTable (Biomet,True,9999)
+ DataInterval (0,60,Sec,10)
+ Minimum(1,BattV,IEEE4,0,False)
+ Sample(1,PanelT,IEEE4)
+ Average(4,Net(),IEEE4,False)
+ FieldNames("Incoming_SW:,Outgoing_SW:,Incoming_LW:,Outgoing_LW:")
+ Average(3,T(),IEEE4,False)
+ FieldNames("T_1:,T_2:,T_3:")
+ Average(3,RH(),IEEE4,False)
+ FieldNames("RH_1:,RH_2:,RH_3:")
+EndTable 
+
+' Table 2 for 30 min intevral data 
+DataTable(Bio30Min, True, 9999)
+  DataInterval (0,30,Min,10)
+  Average(4,Net(),IEEE4,False)
+  FieldNames("SWIN:,SWOUT:,LWIN:,LWOUT:")
+  Average(3,T(),IEEE4,False)
+  FieldNames("T_1:,T_2:,T_3:")
+  Average(3,RH(),IEEE4,False)
+  FieldNames("RH_1:,RH_2:,RH_3:")
+EndTable 
+ 
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+' MAIN PROGRAM 
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+BeginProg 
+  PipeLineMode
+  Scan (5,Sec,2,0)
+  	Battery(BattV)
+	PanelTemp(PanelT,_60Hz)
+
+'Measure Surface Temperature
+SDI12Recorder (Net(),C1,0,"MC!",1.0,0) 'refer to the owner's manual for a list of relevant commands
+
+VoltSe (T(1),1,mV5000,5,1,0,_60Hz,1,0)
+VoltSe (T(2),1,mV5000,9,1,0,_60Hz,1,0)
+VoltSe (T(3),1,mV5000,13,1,0,_60Hz,1,0)
+
+T_1=T(1)*0.04-40
+T_2=T(2)*0.04-40
+T_3=T(3)*0.04-40
+
+
+VoltSe (RH(1),1,mV5000,7,1,0,_60Hz,0.04,0)
+VoltSe (RH(2),1,mV5000,11,1,0,_60Hz,0.04,0)
+VoltSe (RH(3),1,mV5000,15,1,0,_60Hz,0.04,0)
+
+CallTable Biomet
+CallTable Bio30Min
+	NextScan
+EndProg
+

@@ -1,0 +1,45 @@
+'CR1000x Series Datalogger
+'date: 2024_02_28
+
+'Var naming
+'SBT= Sensor Body Temperature
+
+
+'Wiring 
+'Currently, both sensors are setup to connect to the CR1000x C1 port
+'Each IRT has a different SDI12 address 
+'Apogee SN 8407 = SDIaddress 0
+'Apogee SN 6282 = SDIaddress 1
+
+'Declare Public Variables
+
+Public SI431_A(2)
+Public SI431_B(2)
+
+'Rename Variables
+Alias SI431_A(1) = TargetTemp_A_DegC
+Alias SI431_A(2) = SBT_A_DegC
+Alias SI431_B(1) = TargetTemp_B_DegC
+Alias SI431_B(2) = SBT_B_DegC
+
+'Define Data Tables
+DataTable (Canopy_IRT,True,-1)
+	DataInterval (0,5,Min,10)
+	Average(1,SBT_A_DegC,IEEE4,False)
+  Average(1,TargetTemp_A_DegC,IEEE4,False)
+  Average(1,SBT_B_DegC,IEEE4,False)
+  Average(1,TargetTemp_B_DegC,IEEE4,False)
+EndTable
+
+'Main Program
+BeginProg
+	Scan(15,Sec,1,0)
+    'Measure Target Temperature
+    SDI12Recorder (SI431_A(),1,0,"MC1!",1,0)' Apogee SN 8407; modify SDIPort and accordingly 
+    SDI12Recorder (SI431_B(),1,1,"MC1!",1,0)' Apogee SN 6282; modify SDIPort and SDIAddress accordingly 
+    
+    'Call Data Tables
+		CallTable Canopy_IRT
+	NextScan
+EndProg
+
