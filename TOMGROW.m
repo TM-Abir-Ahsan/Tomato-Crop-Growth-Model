@@ -3,7 +3,7 @@ clear all; clc;
 Data=xlsread('TOMGRO_INPUT.xlsx','Sheet1');
 
 Thin=Data(:,3);
-PPFD_in=Data(:,2);
+PPFD_in=Data(:,1)*2.3;
 
 % Initial Variables %Jones (1999)
 N = 6.0; 
@@ -12,6 +12,7 @@ W = 0.28;
 Wm = 0.0;
 Wf = 0.0;
 CO2 = 450; % ppm
+dens = 3.10; % Cropping density
 
 % Growth data per day
 N_hist = [];
@@ -37,9 +38,11 @@ for i = 1:1:250
     Tdaytime = 0;
     ndaytime = 0;
     PPFDd = 0;
+    Tmin = 100; % This is to restore the high value 
 
     % for daily temperature
-    for h = 1:1:24
+    for h = 1:1:24        
+        Tm = min(Thin(i*h),Tmin);
         Td = Td + Thin(i*h);
         PPFDd = PPFDd + PPFD_in(i*h);
         Tdaytime = Tdaytime + (PPFD_in(i*h) ~=0)*Thin(i*h);
@@ -65,7 +68,7 @@ for i = 1:1:250
     Pg_ = Pg(LFmax_, PGRED_, PPFDd, LAI);
     Rm_ = Rm(Td, W, Wm);
     GRnet_ = GRnet(Pg_, Rm_, fR_);
-    fF_ = fF(Td);
+    fF_ = fF(Td,Tm);
     g_ = g(Tdaytime);
     dWfdt_ = dWfdt(GRnet_, fF_, N, g_);
 
@@ -99,6 +102,8 @@ end
 
 figure
 plot(1:1:250,LAI_hist)
+xlabel('Days after transplanation')
+ylabel('LAI')
 hold on
 figure
 plot(1:1:250,Wm_hist,1:1:250,Wf_hist,1:1:250,W_hist)
@@ -130,7 +135,7 @@ function result = dLAIdt(LAI, dens, N, lambda_, dNdt_)
     sigma = 0.038; % P Maximum leaf area expansion per node, coefficient in expolinear equation; Jones(1999)
     beta = 0.169; % P Coefficient in expolinear equation; Jones(1999)
     Nb = 16.0; % P Coefficient in expolinear equation, projection of linear segment of LAI vs N to horizontal axis; Jones(1999)
-    LAImax = 4.0; % P Jones(1999)
+    LAImax = 3.5; % P Jones(1999)
 
     if (LAI > LAImax)
         result = 0;
@@ -141,7 +146,7 @@ function result = dLAIdt(LAI, dens, N, lambda_, dNdt_)
 end
 
 function result = dWdt(LAI, dWfdt_, GRnet_, dens, dNdt_)
-    LAImax = 4.0; % P Jones(1999)
+    LAImax = 3.5; % P Jones(1999)
     if (LAI >= LAImax)
         p1 = 2.0; % P Jones(1999)
     else
@@ -166,7 +171,7 @@ function result = Df(T)
 end
 
 function result = dWmdt(Df_, Wf, Wm, N)
-    NFF = 22.0; % P Jones(1999)
+    NFF = 22; % P Jones(1999)
     kF = 5.0; % P Jones(1999)
 
     if (N <= NFF + kF)
@@ -178,11 +183,12 @@ end
 
 function result = fR(N)
     % root phenology-dependent fraction; Jones(1991)
-    if (N >= 30)
-        result = 0.07;
-    else
-        result = -0.0046 * N + 0.2034;
-    end
+    %     if (N >= 30)
+    %         result = 0.07;
+    %     else
+    %         result = -0.0046 * N + 0.2034;
+    %     end
+    result = max(0.02, 0.18 - 0.0032*N); % Shamshiri 2016
 end
 
 function result = LFmax(CO2)
@@ -226,15 +232,17 @@ function result = GRnet(Pg_, Rm_, fR_)
     result = max(0, E * (Pg_ - Rm_) * (1 - fR_));
 end
 
-function result = fF(Td)
-    % Jones(1991)
-    if (Td > 8 && Td <= 28)
-        result = 0.0017 * Td - 0.0147;
-    elseif (Td > 28)
-        result = 0.032;
-    else
-        result = 0;
-    end
+function result = fF(Td,Tm)
+    %Jones(1991)
+    %     if (Td > 8 && Td <= 28)
+    %         result = 0.0017 * Td - 0.0147;
+    %     elseif (Td > 28)
+    %         result = 0.032;
+    %     else
+    %         result = 0;
+    %     end
+    result = max(0,min(1,0.0625*(Td-Tm))); %Shamshiri 2016
+
 end
 
 function result = g(T_daytime)
@@ -244,17 +252,17 @@ function result = g(T_daytime)
     else
         result = max(0, 1.0 - 0.154 * (T_daytime - T_CRIT));
     end
+    
 end
 
 function result = dWfdt(GRnet_, fF_, N, g_)
     NFF = 22; % 22.0 P Nodes per plant when the first fruit appears; Jones(1999)
     alpha_F = 0.80; % P Maximum partitioning of new growth to fruit; Jones(1999)
     v = 0.135; % P Transition coefficient between vegetative and full fruit growth; Jones(1999)
-    fF_ = 0.5; % P ORIGINAL
+    %fF_ = 0.5; % P ORIGINAL
     if (N <= NFF)
         result = 0;
     else
         result = GRnet_ * alpha_F * fF_ * (1 - exp(v * (NFF - N))) * g_;
     end
 end
-
